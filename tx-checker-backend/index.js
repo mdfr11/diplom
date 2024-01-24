@@ -45,7 +45,9 @@ app.post("/transaction", async (req, res) => {
 
     const modelData = formatModelData(addressData);
 
-    const modelResponse = await axios.post(MODEL_API, modelData);
+    const modelResponse = await axios.post(MODEL_API, {
+      data: Object.values(modelData),
+    });
     const prediction = modelResponse.data;
 
     res.json(prediction);
@@ -79,7 +81,7 @@ function formatModelData(addressData) {
     avg_val_received: toEthers(calculateAvgValueReceived(receivedTxs)),
     min_val_sent: toEthers(calculateMinValueSent(sentTxs)),
     max_val_sent: toEthers(calculateMaxValueSent(sentTxs)),
-    avg_val_sent: toEthers(calculateAvgValueSent(sentTxs)),
+    avg_val_sent: toEthers(calculateAvgValueSent(sentTxs)) || 0,
     total_transactions_including_tnx_to_create_contract: addressData.txs,
     total_Ether_sent: toEthers(calculateTotalEtherSent(sentTxs)),
     total_ether_received: toEthers(calculateTotalEtherReceived(receivedTxs)),
@@ -134,11 +136,17 @@ function calculateAvgValueReceived(sentTxs) {
 }
 
 function calculateMinValueSent(receivedTxs) {
-  return Math.min(...receivedTxs.map((tx) => tx.value));
+  if (receivedTxs.length > 0) {
+    return Math.min(...receivedTxs.map((tx) => tx.value));
+  }
+  return 0;
 }
 
 function calculateMaxValueSent(receivedTxs) {
-  return Math.max(...receivedTxs.map((tx) => tx.value));
+  if (receivedTxs.length > 0) {
+    return Math.max(...receivedTxs.map((tx) => tx.value));
+  }
+  return 0;
 }
 
 function calculateAvgValueSent(receivedTxs) {

@@ -6,56 +6,60 @@ const MODEL_API = "url";
 const API_KEY = "url";
 
 module.exports.handler = async function (event, context) {
-    try {
-        const requestBody = JSON.parse(event.body);
-        const txId = requestBody.txId;
-        const direction = requestBody.direction;
+  try {
+    const requestBody = JSON.parse(event.body);
+    const txId = requestBody.txId;
+    const direction = requestBody.direction;
 
-        if (!txId || !direction) {
-            return {
-                statusCode: 400,
-                body: JSON.stringify({ error: "Transaction ID and direction are required." })
-            };
-        }
-
-        const transactionResponse = await axios.get(
-            `${BLOCKBOOK_API}/api/v2/tx/${txId}`,
-            {
-                headers: { "api-key": API_KEY },
-            }
-        );
-
-        const transactionData = transactionResponse.data;
-
-        const senderAddress = direction === "in" 
-            ? transactionData.vout[0].addresses[0] 
-            : transactionData.vin[0].addresses[0];
-
-        const addressResponse = await axios.get(
-            `${BLOCKBOOK_API}/api/v2/address/${senderAddress}?details=txs`,
-            {
-                headers: { "api-key": API_KEYƒ },
-            }
-        );
-        const addressData = addressResponse.data;
-
-        const modelData = formatModelData(addressData);
-
-        const modelResponse = await axios.post(MODEL_API, modelData);
-        const prediction = modelResponse.data;
-
-        return {
-            statusCode: 200,
-            body: prediction
-        };
-    } catch (error) {
-        return {
-            statusCode: 500,
-            body: JSON.stringify({ error })
-        };
+    if (!txId || !direction) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          error: "Transaction ID and direction are required.",
+        }),
+      };
     }
-};
 
+    const transactionResponse = await axios.get(
+      `${BLOCKBOOK_API}/api/v2/tx/${txId}`,
+      {
+        headers: { "api-key": API_KEY },
+      }
+    );
+
+    const transactionData = transactionResponse.data;
+
+    const senderAddress =
+      direction === "in"
+        ? transactionData.vout[0].addresses[0]
+        : transactionData.vin[0].addresses[0];
+
+    const addressResponse = await axios.get(
+      `${BLOCKBOOK_API}/api/v2/address/${senderAddress}?details=txs`,
+      {
+        headers: { "api-key": API_KEYƒ },
+      }
+    );
+    const addressData = addressResponse.data;
+
+    const modelData = formatModelData(addressData);
+
+    const modelResponse = await axios.post(MODEL_API, {
+      data: Object.values(modelData),
+    });
+    const prediction = modelResponse.data;
+
+    return {
+      statusCode: 200,
+      body: prediction,
+    };
+  } catch (error) {
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error }),
+    };
+  }
+};
 
 function formatModelData(addressData) {
   const receivedTxs = addressData.transactions.filter(
@@ -81,7 +85,7 @@ function formatModelData(addressData) {
     avg_val_received: toEthers(calculateAvgValueReceived(receivedTxs)),
     min_val_sent: toEthers(calculateMinValueSent(sentTxs)),
     max_val_sent: toEthers(calculateMaxValueSent(sentTxs)),
-    avg_val_sent: toEthers(calculateAvgValueSent(sentTxs)),
+    avg_val_sent: toEthers(calculateAvgValueSent(sentTxs)) || 0,
     total_transactions_including_tnx_to_create_contract: addressData.txs,
     total_Ether_sent: toEthers(calculateTotalEtherSent(sentTxs)),
     total_ether_received: toEthers(calculateTotalEtherReceived(receivedTxs)),
@@ -136,11 +140,17 @@ function calculateAvgValueReceived(sentTxs) {
 }
 
 function calculateMinValueSent(receivedTxs) {
-  return Math.min(...receivedTxs.map((tx) => tx.value));
+  if (receivedTxs.length > 0) {
+    return Math.min(...receivedTxs.map((tx) => tx.value));
+  }
+  return 0;
 }
 
 function calculateMaxValueSent(receivedTxs) {
-  return Math.max(...receivedTxs.map((tx) => tx.value));
+  if (receivedTxs.length > 0) {
+    return Math.max(...receivedTxs.map((tx) => tx.value));
+  }
+  return 0;
 }
 
 function calculateAvgValueSent(receivedTxs) {
@@ -163,3 +173,6 @@ function toEthers(raw) {
     .toNumber();
 }
 
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
